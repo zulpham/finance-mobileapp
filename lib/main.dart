@@ -1,122 +1,162 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'controllers/transaction_controller.dart';
+import 'screens/home_screen.dart';
+import 'screens/detail_screen.dart';
+import 'screens/form_transaction.dart';
+import 'screens/saving_screen.dart';
 
 void main() {
-  runApp(const MyApp());
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.dumpErrorToConsole(details);
+    };
+
+    if (!kIsWeb) {
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        sqfliteFfiInit();
+        databaseFactory = databaseFactoryFfi;
+      }
+    }
+
+    runApp(const MyApp());
+  }, (error, stack) {
+    debugPrint("CRITICAL ERROR: $error");
+  });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
+  State<MyApp> createState() => _MyAppState();
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class _MyAppState extends State<MyApp> {
+  ThemeMode _themeMode = ThemeMode.light;
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  void _toggleTheme(bool isDark) {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => TransactionController()),
+      ],
+      child: MaterialApp(
+        title: 'Personal Finance',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.light,
+          scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+        ),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: const Color(0xFF020617),
+        ),
+        themeMode: _themeMode,
+        home: MainContainer(
+          currentThemeMode: _themeMode,
+          onThemeChanged: _toggleTheme,
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+    );
+  }
+}
+
+class MainContainer extends StatefulWidget {
+  final ThemeMode currentThemeMode;
+  final Function(bool) onThemeChanged;
+
+  const MainContainer({
+    super.key,
+    required this.currentThemeMode,
+    required this.onThemeChanged,
+  });
+
+  @override
+  State<MainContainer> createState() => _MainContainerState();
+}
+
+class _MainContainerState extends State<MainContainer> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> _pages = [
+      HomeScreen(
+        currentThemeMode: widget.currentThemeMode,
+        onThemeChanged: widget.onThemeChanged,
+      ),
+      const DetailScreen(),
+      const SavingsScreen(),
+    ];
+
+    final isDark = widget.currentThemeMode == ThemeMode.dark;
+
+    return Scaffold(
+      // Body mengikuti tab yang dipilih
+      body: _pages[_currentIndex],
+
+      // TOMBOL (+) DIPINDAH KE POJOK KANAN BAWAH
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddTransactionForm()),
+          );
+        },
+        backgroundColor: Colors.blueAccent,
+        shape: const CircleBorder(),
+        elevation: 4,
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      )
+          : null,
+
+      // POSISI DIUBAH KE endFloat AGAR DI POJOK
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (int index) => setState(() => _currentIndex = index),
+        // Warna background navigasi menyesuaikan tema
+        backgroundColor: isDark
+            ? Colors.black.withOpacity(0.5)
+            : Colors.white.withOpacity(0.8),
+        elevation: 0,
+        indicatorColor: Colors.blueAccent.withOpacity(0.2),
+        destinations: const [
+          NavigationDestination(
+              icon: Icon(Icons.pie_chart_outline),
+              selectedIcon: Icon(Icons.pie_chart),
+              label: 'Ringkasan'
+          ),
+          NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long),
+              label: 'Riwayat'
+          ),
+          NavigationDestination(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet),
+              label: 'Tabungan'
+          ),
+        ],
+      ),
     );
   }
 }
