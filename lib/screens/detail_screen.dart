@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../controllers/transaction_controller.dart';
 import '../models/models.dart';
@@ -13,8 +16,6 @@ class DetailScreen extends StatefulWidget {
 }
 
 class _DetailScreenState extends State<DetailScreen> {
-  // PERBAIKAN: Deklarasi variabel yang sebelumnya 'Undefined'
-  String _selectedAggregation = 'Hari';
 
   List<_GroupedData> _processData(List<TransactionModel> transactions) {
     Map<String, List<TransactionModel>> groupedMap = {};
@@ -38,19 +39,9 @@ class _DetailScreenState extends State<DetailScreen> {
         if (tx.isIncome) income += tx.amount;
         else expense += tx.amount;
       }
-
-      DateTime dateObj = DateTime.parse(entry.key.length == 4
-          ? "${entry.key}-01-01"
-          : (entry.key.length == 7 ? "${entry.key}-01" : entry.key));
-
+      DateTime dateObj = DateTime.parse(entry.key.length == 4 ? "${entry.key}-01-01" : (entry.key.length == 7 ? "${entry.key}-01" : entry.key));
       String label;
-      if (_selectedAggregation == 'Hari') {
-        label = DateFormat('dd MMM yyyy').format(dateObj);
-      } else if (_selectedAggregation == 'Bulan') {
-        label = DateFormat('MMMM yyyy').format(dateObj);
-      } else {
-        label = DateFormat('yyyy').format(dateObj);
-      }
+      else label = DateFormat('yyyy').format(dateObj);
 
       return _GroupedData(
         sortKey: entry.key,
@@ -70,45 +61,29 @@ class _DetailScreenState extends State<DetailScreen> {
     final controller = Provider.of<TransactionController>(context);
     final groupedData = _processData(controller.transactions);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text("Detail Transaksi")),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                const Text("Agregasi: ", style: TextStyle(fontWeight: FontWeight.bold)),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedAggregation,
-                      items: ['Hari', 'Bulan', 'Tahun'].map((String val) {
-                        return DropdownMenuItem(value: val, child: Text(val));
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedAggregation = val);
-                      },
-                    ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedAggregation,
+                            isDense: true,
+                            onChanged: (val) => setState(() => _selectedAggregation = val!),
+                          ),
+                        ),
+                      ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: groupedData.isEmpty
-                ? const Center(child: Text("Tidak ada data transaksi"))
-                : ListView.builder(
-              itemCount: groupedData.length,
-              itemBuilder: (context, index) {
-                return TransactionGroupCard(data: groupedData[index]);
-              },
+
+                Expanded(
+                  child: groupedData.isEmpty
+                      ? const Center(child: Text("Tidak ada data transaksi"))
+                      : ListView.builder(
+                    itemCount: groupedData.length,
+                    itemBuilder: (context, index) {
+                    },
             ),
           ),
         ],
@@ -123,18 +98,11 @@ class _GroupedData {
   final int totalIncome;
   final int totalExpense;
   final List<TransactionModel> transactions;
-  _GroupedData({
-    required this.sortKey,
-    required this.displayLabel,
-    required this.totalIncome,
-    required this.totalExpense,
-    required this.transactions
-  });
+  _GroupedData({required this.sortKey, required this.displayLabel, required this.totalIncome, required this.totalExpense, required this.transactions});
 }
 
 class TransactionGroupCard extends StatefulWidget {
   final _GroupedData data;
-  const TransactionGroupCard({super.key, required this.data});
 
   @override
   State<TransactionGroupCard> createState() => _TransactionGroupCardState();
@@ -143,31 +111,71 @@ class TransactionGroupCard extends StatefulWidget {
 class _TransactionGroupCardState extends State<TransactionGroupCard> {
   bool _isExpanded = false;
 
+  Future<void> _generatePdf(BuildContext context) async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+          pw.Table.fromTextArray(
+          ),
+        ],
+      ),
+    );
+  }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              const SizedBox(height: 20),
+              const Divider(height: 30),
+              Row(
+                children: [
+                  Expanded(
+                    onPressed: () {
+    showDialog(
+      context: context,
+        title: const Text("Hapus Transaksi?"),
+        actions: [
+          ),
+
+                );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+    return Padding(
+      child: Row(
+        children: [
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          ListTile(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
-            title: Text(widget.data.displayLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text("Masuk: ${widget.data.totalIncome} | Keluar: ${widget.data.totalExpense}"),
-            trailing: Icon(_isExpanded ? Icons.expand_less : Icons.expand_more),
-          ),
-          if (_isExpanded)
-            Column(
-              children: widget.data.transactions.map((tx) {
-                return ListTile(
-                  leading: Icon(tx.isIncome ? Icons.add_circle : Icons.remove_circle,
-                      color: tx.isIncome ? Colors.green : Colors.red),
-                  title: Text(tx.name),
-                  trailing: Text("Rp ${tx.amount}"),
-                );
-              }).toList(),
+            child: Column(
+              children: [
+                ListTile(
+                  onTap: () => setState(() => _isExpanded = !_isExpanded),
+                  title: Text(widget.data.displayLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                    ],
+                  ),
+                ),
+                if (_isExpanded)
+                    dense: true,
             ),
-        ],
+          ),
       ),
     );
   }
